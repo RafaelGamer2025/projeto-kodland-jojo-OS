@@ -1,4 +1,4 @@
-# 🌟 Jojo-OS v3.0
+# 🌟 Jojo-OS v5.12
 
 > "A aventura bizarra da produtividade."
 
@@ -16,12 +16,16 @@ Jojo-OS é um ambiente de desktop personalizado desenvolvido em Python, focado e
 
 1. **Pré-requisitos:**
    - Python 3.10 ou superior.
-   - Uma chave de API do Google Gemini (colocada no arquivo `.env`).
+   - Uma chave de API do GROQ (colocada no arquivo `.env`).
+   - com o nome de API_KEY 
 
 2. **Instalação:**
    ```bash
    pip install requirements.txt
 
+3. **nao obrigatorio**
+   ```bash
+   Ter vs code
 ## 📜 Licença
    ```bash
    Este projeto é licenciado sob a MIT License - veja o arquivo [LICENSE](LICENSE) para mais detalhes.

@@ -1,5 +1,4 @@
-# filepath: c:\Users\Rafael\OneDrive\Anexos\Área de Trabalho\site\cleitan-os\core\ports.py
-
+# ports.py
 import socket
 
 class PortScanner:

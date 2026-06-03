@@ -1,5 +1,7 @@
+# calc_window.py
 import tkinter as tk
-from ui.jojo_theme import JoJoTheme
+from ui.themes.jojo_theme import JoJoTheme
+from ui.themes.hacker_theme import HackerTheme
 import os
 from pygame import mixer 
 from PIL import Image, ImageTk, ImageOps, ImageDraw, ImageGrab
@@ -15,100 +17,109 @@ def localizar_pasta_soms():
     return None
 
 class JoJoCalc:
-    def __init__(self, master):
+    def __init__(self, master, theme_atual="JOJO", sound_mode="ora"):
+        self.sound_mode = sound_mode
         self.master = master
-        self.master.title("JOJO CALCULATOR // STAR PLATINUM")
-        self.master.geometry("400x600")
-        self.master.configure(bg=JoJoTheme.BLACK)
-
-        # Referência para a janela principal do SISTEMA (o root do JoJoOS)
-        self.system_root = self.master.winfo_toplevel()
-
-        self.click_sound = None
-        self.success_sound = None 
-        self.error_sound = None   
-        self.hold_sound = None    
+        # Define o tema com base na escolha do sistema
+        self.theme_name = theme_atual
+        self.theme = JoJoTheme if theme_atual == "JOJO" else HackerTheme
         
+        self.master.title("JOJO CALCULATOR" if theme_atual == "JOJO" else "CLEITAN-OS TERMINAL")
+        self.master.geometry("400x600")
+        self.master.configure(bg="#000000") # Fundo sempre preto para ambos
+
+        self.system_root = self.master.winfo_toplevel()
+        
+        # Configuração de sons e estados
         self.hold_job = None 
         self.was_held = False 
         self.ee_activated = False 
 
-        # Cores para o efeito negativo
-        self.neg_black = "#ffffff"
-        self.neg_gold = "#005aff" 
-        self.neg_purple = "#a0ff5f" 
-        self.neg_pink = "#00ffbf" 
+        # Definição de cores de Inversão (Efeito Especial)
+        if theme_atual == "JOJO":
+            self.neg_black, self.neg_gold = "#ffffff", "#005aff"
+            self.neg_purple, self.neg_pink = "#a0ff5f", "#00ffbf"
+            self.text_color = "#FFD700" # Dourado JoJo
+        else:
+            # Cores "Matrix" para o modo Hacker
+            self.neg_black, self.neg_gold = "#000000", "#00FF41"
+            self.neg_purple, self.neg_pink = "#003B00", "#008F11"
+            self.text_color = "#00FF00" # Verde Hacker
 
         self.canvas_overlay = None
-        self.inverted_tk = None
-        self.overlay_image = None
         self.radius = 0
 
+        # Inicialização de Sons
         try:
             mixer.init()
             pasta = localizar_pasta_soms()
-            if pasta:
+            if self.sound_mode == "muda":
+                # DIO
+                self.click_sound = mixer.Sound(os.path.join(pasta, "inutil.wav"))
+                self.hold_sound = mixer.Sound(os.path.join(pasta, "dio-time-stop.wav"))
+            else:
+                # JOTARO
                 self.click_sound = mixer.Sound(os.path.join(pasta, "ora-jotaro.wav"))
-                self.success_sound = mixer.Sound(os.path.join(pasta, "tusk-chimimi.wav"))
-                self.error_sound = mixer.Sound(os.path.join(pasta, "error.wav")) 
                 self.hold_sound = mixer.Sound(os.path.join(pasta, "star-platinum-zw.wav"))
-                
-                if self.success_sound: self.success_sound.play()
-        except Exception as e:
-            print(f"Erro no mixer: {e}")
-
+        except:
+            self.click_sound = None
+            self.hold_sound = None    
         self.result_var = tk.StringVar()
         self.buttons_list = [] 
         self.create_widgets()
 
     def play_sound(self, sound_type):
         try:
+            mixer.stop() # PARA o som anterior para não bugar
             if sound_type == "click" and self.click_sound: self.click_sound.play()
-            elif sound_type == "success" and self.success_sound: self.success_sound.play()
-            elif sound_type == "error" and self.error_sound: self.error_sound.play()
             elif sound_type == "hold" and self.hold_sound: self.hold_sound.play()
         except: pass
 
     def stop_time_effect(self):
-        """Efeito ZA WARUDO: Captura o sistema todo e expande o círculo negativo"""
         if self.ee_activated: return
         self.ee_activated = True
-        
+        self.was_held = True # Marca que foi um clique longo
         self.play_sound("hold")
 
-        # 1. Pegar geometria do sistema (Root)
-        x = self.system_root.winfo_rootx()
-        y = self.system_root.winfo_rooty()
-        w = self.system_root.winfo_width()
-        h = self.system_root.winfo_height()
+        x, y = self.system_root.winfo_rootx(), self.system_root.winfo_rooty()
+        w, h = self.system_root.winfo_width(), self.system_root.winfo_height()
 
-        # 2. Print de todas as janelas e inversão
-        screenshot = ImageGrab.grab(bbox=(x, y, x + w, y + h))
-        self.overlay_image = ImageOps.invert(screenshot.convert("RGB"))
+        try:
+            self.canvas_overlay = tk.Canvas(self.system_root, bg="black")
+            self.canvas_overlay.place(relwidth=1, relheight=1)
 
-        # 3. Criar o Canvas sobre o ROOT do sistema
-        self.canvas_overlay = tk.Canvas(self.system_root, width=w, height=h, 
-                                      highlightthickness=0, bg="black")
-        self.canvas_overlay.place(x=0, y=0)
-        
-        # --- SOLUÇÃO TÉCNICA PARA O ERRO ---
-        # Forçamos o levantamento do widget usando a classe base Misc para evitar o erro de argumentos do Canvas
-        tk.Misc.tkraise(self.canvas_overlay)
+            self.canvas_overlay.create_text(
+                w//2, h//2,
+                text="ZA WARUDO",
+                fill="white",
+                font=("Impact", 50)
+            )
+            
+            self.canvas_overlay = tk.Canvas(self.system_root, width=w, height=h, highlightthickness=0)
+            self.canvas_overlay.place(x=0, y=0)
 
-        self.radius = 10
-        self.animate_expansion(w, h)
+            # 👇 força atualização
+            self.system_root.update_idletasks()
+            self.canvas_overlay.lift()
+
+            self.radius = 10
+            self.animate_expansion(w, h)
+            # CAPTURA DA TELA
+            img = ImageGrab.grab(bbox=(x, y, x+w, y+h))
+            img = ImageOps.invert(img.convert("RGB"))
+
+            self.overlay_image = img
+        except:
+            self.ee_activated = False
 
     def animate_expansion(self, w, h):
         max_radius = (w**2 + h**2)**0.5
-        
         if self.radius < max_radius:
-            self.radius += 50 # Aumentei a velocidade para ser mais responsivo
-            
+            self.radius += 60 # Velocidade da expansão
             mask = Image.new('L', (w, h), 0)
             draw = ImageDraw.Draw(mask)
             cx, cy = w // 2, h // 2
-            draw.ellipse((cx - self.radius, cy - self.radius, 
-                          cx + self.radius, cy + self.radius), fill=255)
+            draw.ellipse((cx - self.radius, cy - self.radius, cx + self.radius, cy + self.radius), fill=255)
             
             current_frame = Image.new('RGBA', (w, h), (0,0,0,0))
             current_frame.paste(self.overlay_image, (0, 0), mask=mask)
@@ -116,15 +127,12 @@ class JoJoCalc:
             self.inverted_tk = ImageTk.PhotoImage(current_frame)
             self.canvas_overlay.delete("all")
             self.canvas_overlay.create_image(0, 0, image=self.inverted_tk, anchor="nw")
-            
-            # Usamos master.after para não travar a thread
-            self.master.after(10, lambda: self.animate_expansion(w, h))
+            self.master.after(15, lambda: self.animate_expansion(w, h))
         else:
             self.apply_negative_ui()
-            self.master.after(4000, self.restore_colors)
+            self.master.after(3000, self.restore_colors)
 
     def apply_negative_ui(self):
-        """Inverte visualmente os botões por baixo do overlay"""
         self.master.configure(bg=self.neg_black)
         self.display.configure(bg="#e5e5e5", fg=self.neg_gold)
         for btn, char in self.buttons_list:
@@ -133,72 +141,84 @@ class JoJoCalc:
 
     def restore_colors(self):
         if self.canvas_overlay:
+            self.canvas_overlay.delete("all")
             self.canvas_overlay.destroy()
             self.canvas_overlay = None
-            
-        self.master.configure(bg=JoJoTheme.BLACK)
-        self.display.configure(bg="#1a1a1a", fg=JoJoTheme.GOLD)
-        for btn, char in self.buttons_list:
-            orig_bg = JoJoTheme.PURPLE if char.isdigit() else JoJoTheme.PINK
-            btn.configure(bg=orig_bg, fg=JoJoTheme.GOLD)
         
+        # Volta as cores originais do tema
+        self.master.configure(bg="#000000")
+        self.display.configure(bg="#1a1a1a", fg=self.text_color)
+        for btn, char in self.buttons_list:
+            orig_bg = self.theme.PURPLE if char.isdigit() else self.theme.PINK
+            btn.configure(bg=orig_bg, fg=self.text_color)
         self.ee_activated = False
-
-    def trigger_hold(self):
-        self.was_held = True
-        self.stop_time_effect()
 
     def on_press(self, char):
         self.was_held = False
-        self.hold_job = self.master.after(210, self.trigger_hold)
+        # Se segurar por mais de 400ms, ativa o ZA WARUNDO / HACK
+        self.hold_job = self.master.after(400, self.stop_time_effect)
 
     def on_release(self, char):
         if self.hold_job:
             self.master.after_cancel(self.hold_job)
             self.hold_job = None
+        
         if not self.was_held:
-            self.on_button_click(char)
+            if char == 'C': self.result_var.set("")
+            elif char == '=':
+                try: 
+                    res = str(eval(self.result_var.get()))
+                    self.result_var.set(res)
+                except: self.result_var.set("ERROR")
+            else: 
+                self.result_var.set(self.result_var.get() + char)
+            self.play_sound("click")
 
     def create_widgets(self):
-        self.display = tk.Entry(self.master, textvariable=self.result_var, font=("Impact", 32), 
-                           bg="#1a1a1a", fg=JoJoTheme.GOLD, bd=5, relief="sunken", justify='right')
+        font_name = "Impact" if self.theme_name == "JOJO" else "Courier New"
+        
+        self.display = tk.Entry(self.master, textvariable=self.result_var, font=(font_name, 32), 
+                           bg="#1a1a1a", fg=self.text_color, bd=5, relief="sunken", justify='right')
         self.display.pack(expand=True, fill='both', padx=10, pady=10)
 
-        button_frame = tk.Frame(self.master, bg=JoJoTheme.BLACK)
-        button_frame.pack(expand=True, fill='both')
+        btn_frame = tk.Frame(self.master, bg="#000000")
+        btn_frame.pack(expand=True, fill='both', padx=5, pady=5)
 
-        buttons = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', 'C', '=', '+']
-
-        row, col = 0, 0
-        for button in buttons:
-            bg_color = JoJoTheme.PURPLE if button.isdigit() else JoJoTheme.PINK
-            btn = tk.Button(button_frame, text=button, font=("Impact", 20), 
-                            bg=bg_color, fg=JoJoTheme.GOLD, bd=3, relief="raised")
-            
-            btn.bind("<ButtonPress-1>", lambda e, b=button: self.on_press(b))
-            btn.bind("<ButtonRelease-1>", lambda e, b=button: self.on_release(b))
-            
-            btn.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)
-            self.buttons_list.append((btn, button)) 
-            col += 1
-            if col > 3: col = 0; row += 1
-
-        for i in range(4):
-            button_frame.grid_columnconfigure(i, weight=1)
-            button_frame.grid_rowconfigure(i, weight=1)
-
-    def on_button_click(self, char):
-        if self.ee_activated: return
-        if char == 'C':
-            self.play_sound("click")
-            self.result_var.set("")
-        elif char == '=':
+        btns = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', 'C', '=', '+']
+        r, c = 0, 0
+        for b in btns:
             try:
-                self.result_var.set(str(eval(self.result_var.get())))
-                self.play_sound("success")
+                if b.isdigit():
+                    color = getattr(self.theme, 'PURPLE', "#003b00")
+                else:
+                    color = getattr(self.theme, 'PINK', "#008f11")
             except:
-                self.result_var.set("MUDA MUDA!")
-                self.play_sound("error")
-        else:
-            self.play_sound("click")
-            self.result_var.set(self.result_var.get() + char)
+                color = "#1a1a1a" # Cor de segurança caso tudo falhe
+            
+            btn = tk.Button(btn_frame, text=b, font=(font_name, 20), 
+                            bg=color, fg=self.text_color,
+                            activebackground=self.text_color, activeforeground="black",
+                            relief="raised" if self.theme_name == "JOJO" else "flat")
+            
+            # Binds para clique longo e curto
+            btn.bind("<ButtonPress-1>", lambda e, b=b: self.on_press(b))
+            btn.bind("<ButtonRelease-1>", lambda e, b=b: self.on_release(b))
+            
+            btn.grid(row=r, column=c, sticky="nsew", padx=2, pady=2)
+            self.buttons_list.append((btn, b))
+            
+            c += 1
+            if c > 3: 
+                c = 0
+                r += 1
+        
+        for i in range(4): 
+            btn_frame.grid_columnconfigure(i, weight=1)
+        for i in range(4):
+            btn_frame.grid_rowconfigure(i, weight=1)
+
+# Função para testar a janela sozinha
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = JoJoCalc(root, theme_atual="HACKER") # Teste manual
+    root.mainloop()

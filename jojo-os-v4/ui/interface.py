@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import scrolledtext
 import threading
-from ui.jojo_theme import JoJoTheme
+from ui.themes.jojo_theme import JoJoTheme
 from core.ia_window import abrir_janela_ia
 
 def iniciar_interface():

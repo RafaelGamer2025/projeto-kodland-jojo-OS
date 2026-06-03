@@ -1,3 +1,4 @@
+# browser.py
 import tkinter as tk
 import webbrowser
 

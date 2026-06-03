@@ -1,23 +1,34 @@
+# ia_window.py
 import tkinter as tk
 from tkinter import scrolledtext
-from google import genai
 import os
 from dotenv import load_dotenv
 import threading
-from ui.jojo_theme import JoJoTheme
 
-# Carrega a chave do arquivo .env
+# IMPORTANTE: Importar a função que já corrigimos e que funciona!
+from core.iagemini import perguntar_ia 
+from ui.themes.jojo_theme import JoJoTheme
+
 load_dotenv()
-api_key = os.getenv("GEMINI_KEY")
 
-# Configura o novo cliente do Gemini
-client = genai.Client(api_key=api_key) if api_key else None
-
-def abrir_janela_ia(root_principal):
-    janela_ia = tk.Toplevel(root_principal)
+def abrir_janela_ia(app):
+    janela_ia = tk.Toplevel(app.root)
     janela_ia.title("JOJO-OS // HEAVEN'S DOOR AI")
     janela_ia.geometry("700x600")
     janela_ia.configure(bg=JoJoTheme.BLACK)
+
+    def executar_comando(texto):
+        texto_lower = texto.lower()
+        if "calculadora" in texto_lower or "calc" in texto_lower:
+            app.open_calc()
+            return "Abrindo calculadora..."
+        if any(palavra in texto_lower for palavra in ("batalha", "battle", "lutar", "fight", "duel", "atacar")):
+            app.open_battle()
+            return "Preparando a batalha..."
+        if "debugger" in texto_lower:
+            app.open_debugger()
+            return "Abrindo debugger..."
+        return None
 
     # Título estilizado
     tk.Label(janela_ia, text="📖 HEAVEN'S DOOR", font=("Impact", 24), 
@@ -42,27 +53,38 @@ def abrir_janela_ia(root_principal):
             chat_box.tag_config("user", foreground=JoJoTheme.PINK)
             entrada_usuario.delete(0, tk.END)
             
-            if not client:
-                chat_box.insert(tk.END, "❌ [ERRO]: GEMINI_KEY não encontrada no .env!\n\n")
-                chat_box.config(state=tk.DISABLED)
-                chat_box.see(tk.END)
-                return
+            # Mostra que a IA está "escrevendo"
+            chat_box.insert(tk.END, "✒️ [HEAVEN'S DOOR]: Escrevendo...\n", "thinking")
+            chat_box.tag_config("thinking", foreground="#555555")
+            chat_box.config(state=tk.DISABLED)
+            chat_box.see(tk.END)
 
-            def processar_ia():
-                try:
-                    response = client.models.generate_content(
-                        model="gemini-1.5-flash", 
-                        contents=pergunta
-                    )
-                    chat_box.config(state=tk.NORMAL)
-                    chat_box.insert(tk.END, f"✒️ [HEAVEN'S DOOR]: {response.text}\n\n", "ai")
+            def atualizar_chat(texto):
+                chat_box.config(state=tk.NORMAL)
+                # Remove o "Escrevendo..."
+                chat_box.delete("end-2l", "end-1l") 
+                
+                if "ERRO" in texto or "💥" in texto:
+                    chat_box.insert(tk.END, f"{texto}\n\n", "error")
+                    chat_box.tag_config("error", foreground="red")
+                else:
+                    chat_box.insert(tk.END, f"✒️ [HEAVEN'S DOOR]: {texto}\n\n", "ai")
                     chat_box.tag_config("ai", foreground=JoJoTheme.GOLD)
-                except Exception as e:
-                    chat_box.config(state=tk.NORMAL)
-                    chat_box.insert(tk.END, f"💥 [KIRA QUEEN]: {str(e)}\n\n")
                 
                 chat_box.config(state=tk.DISABLED)
                 chat_box.see(tk.END)
+
+            comando_resposta = executar_comando(pergunta)
+            if comando_resposta:
+                atualizar_chat(comando_resposta)
+                return
+
+            def processar_ia():
+                # USANDO A FUNÇÃO QUE JÁ TEM O MODELO CORRETO (2.0-flash)
+                resposta = perguntar_ia(pergunta)
+                
+                # Atualiza a interface (precisa ser no thread principal)
+                janela_ia.after(0, lambda: atualizar_chat(resposta))
 
             threading.Thread(target=processar_ia).start()
 
@@ -71,5 +93,4 @@ def abrir_janela_ia(root_principal):
                           activebackground=JoJoTheme.PINK, activeforeground=JoJoTheme.WHITE)
     btn_enviar.pack(pady=15)
     
-    # Atalho ENTER
     entrada_usuario.bind("<Return>", lambda e: enviar_mensagem())

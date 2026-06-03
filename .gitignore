@@ -19,7 +19,6 @@ build/
 *.swp
 *.bak
 *.tmp
-*.zip
 *.tar.gz
 *.7z
 *.exe
@@ -34,3 +33,16 @@ __pycache__/
 *.rar
 *.tar.gz
 *.zip
+*Nova Pasta*/
+*users.json
+*system_state.json
+*response.json
+*conversation_history.json
+requiem_init.json
+Backup_PT2
+*anotaçao.txt
+*.txt
+teste2
+testadno
+.vscode
+Nova pasta
